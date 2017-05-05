@@ -56,7 +56,7 @@ reentry:
 	cl = (LClosure*)rL->ci->func->value.gc;
 	base = rL->base;
 	k = cl->p->k;
-	for (;;) {
+	while(1) {
 		const Instruction i = *pc++;
 		StkId ra;
 		ra = RA(i);
@@ -84,6 +84,10 @@ reentry:
 			case OP_GETUPVAL: {
 				int b = GETARG_B(i);
 				rev_setobj2s(rL, ra, cl->upvals[b]->v);
+				continue;
+			}
+			case OP_JMP: {
+				dojump(rL, pc, GETARG_sBX(i));
 				continue;
 			}
 		}
