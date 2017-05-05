@@ -87,7 +87,7 @@ reentry:
 				continue;
 			}
 			case OP_JMP: {
-				dojump(rL, pc, GETARG_sBX(i));
+				dojump(rL, pc, GETARG_sBx(i));
 				continue;
 			}
 		}
