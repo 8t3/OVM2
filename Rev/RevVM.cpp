@@ -15,7 +15,6 @@
 #define rev_setnilvalue(obj) ((obj)->tt=R_LUA_TNIL)
 #define rev_sethvalue { TValue *i_o=(obj); i_o->value.gc=cast(GCObject *, (x)); i_o->tt=R_LUA_TTABLE; }
 #define rev_vmtry(x) { __try{x;} __except(rev_luaV_vmcatch(GetExceptionINformation()){})}
-#define getstr(ts)      cast(const char *, (ts) + 1)
 #define runtime_check(L, c)	{ if (!(c)) break; }
 #define RA(i)	(base+GETARG_A(i))
 /* to be used after possible stack reallocation */
