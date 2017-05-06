@@ -5,6 +5,7 @@
 #include "../Lua/lobject.h"
 #include "../Lua/lfunc.h"
 #include "../Lua/lopcodes.h"
+#include "../Lua/lgc.h"
 #include <math.h>  
 
 #pragma region RevVM Defines 
@@ -13,6 +14,7 @@
 #define rev_setobj2s setobj
 #define rev_setbvalue(obj, x) { r_TValue *i_o=(obj); i_o->value.b=(x); i_o->tt=R_LUA_TBOOLEAN; }
 #define rev_setnilvalue(obj) ((obj)->tt=R_LUA_TNIL)
+#define rev_setnvalue(obj,x) { TValue *i_o=(obj); i_o->value.n=(x); i_o->tt=R_LUA_TNUMBER; }
 #define rev_sethvalue { TValue *i_o=(obj); i_o->value.gc=cast(GCObject *, (x)); i_o->tt=R_LUA_TTABLE; }
 #define rev_vmtry(x) { __try{x;} __except(rev_luaV_vmcatch(GetExceptionINformation()){})}
 #define runtime_check(L, c)	{ if (!(c)) break; }
@@ -27,8 +29,13 @@
 #define KBx(i)	check_exp(getBMode(GET_OPCODE(i)) == OpArgK, k+GETARG_Bx(i))
 #define dojump(L,pc,i)	{(pc) += (i); luai_threadyield(L);}
 #define Protect(x)      { rL->savedpc = pc; {x;}; base = rL->base; }
-
+#define rev_luaC_barrier(rL,p,v) { if (valiswhite(v) && isblack(obj2gco(p)))  \
+        luaC_barrierf(rL,obj2gco(p),gcvalue(v)); }
 #pragma endregion
+
+rblx::luaV_gettable r_luaV_gettable = (rblx::luaV_gettable)(rev_Offset(r_luaV_gettable_addy));
+rblx::luaV_settable r_luaV_settable = (rblx::luaV_settable)(rev_Offset(r_luaV_settable_addy));
+rblx::lua_setfield r_lua_setfield = (rblx::lua_setfield)(rev_Offset(r_lua_setfield_addy));
 
 typedef TValue r_TValue;
 
@@ -59,6 +66,7 @@ const TValue* rev_luaV_tonumber(const TValue *obj, TValue *n) {
 	
 }
 
+
 void rev_Arith(r_lua_State* rL, TValue*  A, TValue* B, TValue* C, TMS t_op) {
 	TValue tempb, tempc;
 	const TValue *b, *c;
@@ -68,25 +76,25 @@ void rev_Arith(r_lua_State* rL, TValue*  A, TValue* B, TValue* C, TMS t_op) {
 		LUA_NUMBER nc = check_exp(ttisnumber(c), (c)->value.n);
 		switch (t_op) {
 		case TM_ADD: 
-			setnvalue(A, rev_luai_numadd(nb, nc));
+			rev_setnvalue(A, rev_luai_numadd(nb, nc));
 			break;
 		case TM_SUB: 
-			setnvalue(A, rev_luai_numsub(nb, nc));
+			rev_setnvalue(A, rev_luai_numsub(nb, nc));
 			break;
 		case TM_MUL: 
-			setnvalue(A, rev_luai_nummul(nb, nc));
+			rev_setnvalue(A, rev_luai_nummul(nb, nc));
 			break;
 		case TM_DIV: 
-			setnvalue(A, rev_luai_numdiv(nb, nc));
+			rev_setnvalue(A, rev_luai_numdiv(nb, nc));
 			break;
 		case TM_MOD: 
-			setnvalue(A, rev_luai_nummod(nb, nc));
+			rev_setnvalue(A, rev_luai_nummod(nb, nc));
 			break;
 		case TM_POW: 
-			setnvalue(A, rev_luai_numpow(nb, nc));
+			rev_setnvalue(A, rev_luai_numpow(nb, nc));
 			break;
 		case TM_UNM: 
-			setnvalue(A, rev_luai_numunm(nb));
+			rev_setnvalue(A, rev_luai_numunm(nb));
 			break;
 		default: 
 			((void)0); 
@@ -136,17 +144,32 @@ reentry:
 				rev_setobj2s(rL, ra, cl->upvals[b]->v);
 				continue;
 			}
+			case OP_SETUPVAL: {
+				UpVal *uval = cl->upvals[GETARG_B(i)];
+				rev_setobj(rL, uval->v, ra);
+				continue;
+			}
 			case OP_JMP: {
 				dojump(rL, pc, GETARG_sBx(i));
 				continue;
 			}
+			case OP_GETTABLE: {
+				//we have to use rblxs func for these, dont think we can ref our own
+				Protect(r_luaV_gettable((DWORD)rL, (DWORD)RB(i), (DWORD)RKC(i), (DWORD)ra));
+				continue;
+			}
+			case OP_SETTABLE: {
+				Protect(r_luaV_settable((DWORD)rL, (DWORD)RB(i), (DWORD)RKC(i), (DWORD)ra));
+				continue;
+			}
+
 			case OP_ADD: {
 				TValue *rb = RKB(i); 
 				TValue *rc = RKC(i); 
 				if (R_LUA_TNUMBER == (DWORD)rb && R_LUA_TNUMBER == (DWORD)rc) {
 					LUA_NUMBER nb = check_exp(ttisnumber(rb), (rb)->value.n);
 					LUA_NUMBER nc = check_exp(ttisnumber(rc), (rc)->value.n);
-					setnvalue(ra, rev_luai_numadd(nb, nc));
+					rev_setnvalue(ra, rev_luai_numadd(nb, nc));
 				}
 				else 
 					Protect(rev_Arith(rL, ra, rb, rc, TM_ADD));
@@ -159,7 +182,7 @@ reentry:
 				if (R_LUA_TNUMBER == (DWORD)rb && R_LUA_TNUMBER == (DWORD)rc) {
 					LUA_NUMBER nb = check_exp(ttisnumber(rb), (rb)->value.n);
 					LUA_NUMBER nc = check_exp(ttisnumber(rc), (rc)->value.n);
-					setnvalue(ra, rev_luai_numsub(nb, nc));
+					rev_setnvalue(ra, rev_luai_numsub(nb, nc));
 				}
 				else
 					Protect(rev_Arith(rL, ra, rb, rc, TM_SUB));
@@ -172,7 +195,7 @@ reentry:
 				if (R_LUA_TNUMBER == (DWORD)rb && R_LUA_TNUMBER == (DWORD)rc) {
 					LUA_NUMBER nb = check_exp(ttisnumber(rb), (rb)->value.n);
 					LUA_NUMBER nc = check_exp(ttisnumber(rc), (rc)->value.n);
-					setnvalue(ra, rev_luai_nummul(nb, nc));
+					rev_setnvalue(ra, rev_luai_nummul(nb, nc));
 				}
 				else
 					Protect(rev_Arith(rL, ra, rb, rc, TM_MUL));
@@ -185,7 +208,7 @@ reentry:
 				if (R_LUA_TNUMBER == (DWORD)rb && R_LUA_TNUMBER == (DWORD)rc) {
 					LUA_NUMBER nb = check_exp(ttisnumber(rb), (rb)->value.n);
 					LUA_NUMBER nc = check_exp(ttisnumber(rc), (rc)->value.n);
-					setnvalue(ra, rev_luai_numdiv(nb, nc));
+					rev_setnvalue(ra, rev_luai_numdiv(nb, nc));
 				}
 				else
 					Protect(rev_Arith(rL, ra, rb, rc, TM_DIV));
@@ -198,7 +221,7 @@ reentry:
 				if (R_LUA_TNUMBER == (DWORD)rb && R_LUA_TNUMBER == (DWORD)rc) {
 					LUA_NUMBER nb = check_exp(ttisnumber(rb), (rb)->value.n);
 					LUA_NUMBER nc = check_exp(ttisnumber(rc), (rc)->value.n);
-					setnvalue(ra, rev_luai_numpow(nb, nc));
+					rev_setnvalue(ra, rev_luai_numpow(nb, nc));
 				}
 				else
 					Protect(rev_Arith(rL, ra, rb, rc, TM_POW));
@@ -211,7 +234,7 @@ reentry:
 				if (R_LUA_TNUMBER == (DWORD)rb && R_LUA_TNUMBER == (DWORD)rc) {
 					LUA_NUMBER nb = check_exp(ttisnumber(rb), (rb)->value.n);
 					LUA_NUMBER nc = check_exp(ttisnumber(rc), (rc)->value.n);
-					setnvalue(ra, rev_luai_numunm(nb, nc));
+					rev_setnvalue(ra, rev_luai_numunm(nb, nc));
 				}
 				else
 					Protect(rev_Arith(rL, ra, rb, rc, TM_UNM));
