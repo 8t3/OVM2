@@ -30,23 +30,22 @@ void rev_luaV_execute(r_lua_State rL, lua_State *L, int nexeccalls);
 //Enum TMS declare, IDS depend on order do not change
 typedef enum {
 	TM_INDEX,
-	TM_NEWINDEX,
 	TM_GC,
+	TM_NEWINDEX,
 	TM_MODE,
-	TM_EQ, 
-	TM_ADD,
-	TM_SUB,
+	TM_EQ,
 	TM_MUL,
 	TM_DIV,
+	TM_ADD,
 	TM_MOD,
-	TM_POW,
 	TM_UNM,
-	TM_LEN,
-	TM_LT,
-	TM_LE,
-	TM_CONCAT,
+	TM_SUB,
+	TM_POW,
 	TM_CALL,
-	TM_N       
+	TM_LEN,
+	TM_LE,
+	TM_LT,
+	TM_CONCAT
 } TMS;
 
 
