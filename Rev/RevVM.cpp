@@ -241,6 +241,11 @@ reentry:
 
 				continue;
 			}
+			case OP_CLOSE:
+			{
+				r_luaF_close(RL, (int)ra);
+				continue;
+			}
 		}
 	}
 }
