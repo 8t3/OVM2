@@ -36,6 +36,7 @@
 rblx::luaV_gettable r_luaV_gettable = (rblx::luaV_gettable)(rev_Offset(r_luaV_gettable_addy));
 rblx::luaV_settable r_luaV_settable = (rblx::luaV_settable)(rev_Offset(r_luaV_settable_addy));
 rblx::lua_setfield r_lua_setfield = (rblx::lua_setfield)(rev_Offset(r_lua_setfield_addy));
+rblx::luaF_close r_luaF_close = (rblx::luaF_close)(rev_Offset(r_luaF_close_addy));
 
 typedef TValue r_TValue;
 
