@@ -23,6 +23,8 @@
 //55 8B EC 83 EC 0C 8B 4D  0C 56 8B 75 08 57 C7 45
 #define r_lua_setfield_addy 0x50DAA0
 //55 8B EC 83 EC 10 53 56  8B 75 08 57 FF 75 0C 56
+#define r_luaF_close_addy 0x50B280
+//55 8B EC 53 57 8B 7D 08  8B 5F 08 8D 47 08 03 D8
 
 
 void rev_luaV_execute(r_lua_State rL, lua_State *L, int nexeccalls);
@@ -54,4 +56,5 @@ namespace rblx {
 	typedef int(__cdecl* luaV_gettable)(DWORD a, DWORD b, DWORD c, DWORD d);
 	typedef int(__cdecl* luaV_settable)(DWORD a, DWORD b, DWORD c, DWORD d);
 	typedef int(__cdecl* luaD_precall)(DWORD a, DWORD b, DWORD c);
+	typedef void(__cdecl* luaF_close)(DWORD a, DWORD b);
 }
